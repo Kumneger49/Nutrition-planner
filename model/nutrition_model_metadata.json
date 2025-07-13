@@ -1,0 +1,122 @@
+{
+  "feature_names": [
+    "Ages",
+    "Height",
+    "Weight",
+    "Gender_encoded",
+    "Activity Level_encoded",
+    "Dietary Preference_encoded",
+    "Disease_encoded",
+    "Ages_scaled",
+    "Height_scaled",
+    "Weight_scaled",
+    "BMI",
+    "Has_Weight_Gain",
+    "Has_Hypertension",
+    "Has_Heart_Disease",
+    "Has_Kidney_Disease",
+    "Has_Diabetes",
+    "Has_Acne",
+    "Disease_Count",
+    "has_metabolic_disorder",
+    "has_cardiac_risk",
+    "protein_to_calories",
+    "carbs_to_calories",
+    "sugar_to_fiber",
+    "protein_per_kg",
+    "calories_per_kg",
+    "Age_Group_encoded",
+    "Weight_Category_encoded",
+    "Disease_Severity_encoded",
+    "activity_goal_combo_encoded"
+  ],
+  "target_names": [
+    "Daily Calorie Target",
+    "Protein",
+    "Sugar",
+    "Sodium",
+    "Calories",
+    "Carbohydrates",
+    "Fiber"
+  ],
+  "train_scores": {
+    "Daily Calorie Target": {
+      "r2": 0.9984466621702264,
+      "rmse": 21.87051259758893
+    },
+    "Protein": {
+      "r2": 0.9991886599978582,
+      "rmse": 1.523358456419635
+    },
+    "Sugar": {
+      "r2": 0.9857683001216011,
+      "rmse": 4.130387426689028
+    },
+    "Sodium": {
+      "r2": 0.9991800242588026,
+      "rmse": 0.3062888315076684
+    },
+    "Calories": {
+      "r2": 0.9909855860060283,
+      "rmse": 53.97138895674699
+    },
+    "Carbohydrates": {
+      "r2": 0.9857683001216011,
+      "rmse": 8.260774853378056
+    },
+    "Fiber": {
+      "r2": 0.9858358435348804,
+      "rmse": 0.9889378546468222
+    }
+  },
+  "test_scores": {
+    "Daily Calorie Target": {
+      "r2": 0.9923457188264233,
+      "rmse": 50.098650469084795
+    },
+    "Protein": {
+      "r2": 0.9941216516844517,
+      "rmse": 4.0265144027178295
+    },
+    "Sugar": {
+      "r2": 0.8955434682975805,
+      "rmse": 11.669381227609891
+    },
+    "Sodium": {
+      "r2": 0.9941133052281933,
+      "rmse": 0.8058743881100614
+    },
+    "Calories": {
+      "r2": 0.9260476691086614,
+      "rmse": 157.61424207445813
+    },
+    "Carbohydrates": {
+      "r2": 0.8955434682975805,
+      "rmse": 23.338762455219783
+    },
+    "Fiber": {
+      "r2": 0.8954934783965934,
+      "rmse": 2.801321570217298
+    }
+  },
+  "model_type": "RandomForestRegressor + MultiOutputRegressor",
+  "training_date": "2025-07-13T17:06:04.281715",
+  "data_shape": {
+    "train_features": [
+      1358,
+      29
+    ],
+    "train_targets": [
+      1358,
+      7
+    ],
+    "test_features": [
+      340,
+      29
+    ],
+    "test_targets": [
+      340,
+      7
+    ]
+  }
+}
