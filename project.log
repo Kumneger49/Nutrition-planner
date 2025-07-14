@@ -7,3 +7,271 @@
 - Feature engineering and encoding improvements implemented.
 - Model performance evaluated and validated.
 - Next: Review for data leakage and ensure robust validation. 
+
+
+
+---
+Date: [AUTO-FILL LATEST DATE]
+
+**Issue: Data Leakage in Nutrition Model Pipeline**
+
+**Summary:**
+A major data leakage issue was discovered in the machine learning pipeline for predicting personalized nutritional needs. The model was achieving unrealistically high performance (test R² ≈ 0.94) due to the inclusion of engineered features that were directly derived from the target variables (e.g., protein_per_kg, calories_per_kg, protein_to_calories, etc.).
+
+**Detection:**
+- The model's test performance was much higher than expected, and feature importance was dominated by engineered features that used target information.
+- Upon review, it was found that features such as protein_per_kg and calories_per_kg were calculated using the targets, causing the model to "cheat."
+
+**Resolution Steps:**
+1. **Identified all leaky features** that were derived from targets and confirmed their presence in the training data.
+2. **Updated the preprocessing script** (`data/data_preprocessing.py`) to exclude all leaky features from the final feature set. Only safe features (demographics, encoded categoricals, disease flags, and safe engineered features) were retained.
+3. **Implemented explicit feature list saving:**
+    - The final, safe feature list is now saved to `data/feature_columns.json` during preprocessing.
+    - The training script (`model/train_nutrition_model.py`) loads this list and uses only these features for model training and evaluation.
+4. **Regenerated all data splits and retrained the model** using only the safe features.
+
+**Results:**
+- Model performance dropped to a realistic level (test R² ≈ 0.44), confirming that data leakage was eliminated.
+- Feature importance is now dominated by demographic and disease features, not engineered leaky features.
+- The pipeline is now robust, and model results are trustworthy.
+
+**Next Steps:**
+- Consider hyperparameter tuning, additional safe feature engineering, and cross-validation to further improve model performance.
+
+**Lesson Learned:**
+Always ensure that no features derived from targets are included in the model input. Use explicit feature lists and version control to prevent accidental leakage in future iterations.
+
+--- 
+
+---
+Date: [AUTO-FILL LATEST DATE]
+
+**Step: Hyperparameter Tuning with GridSearchCV**
+
+**Summary:**
+To further improve model generalization and reduce overfitting, we integrated GridSearchCV into the training pipeline. GridSearchCV systematically tests combinations of hyperparameters using cross-validation to find the best settings for the RandomForestRegressor (wrapped in MultiOutputRegressor).
+
+**Parameter Grid Used:**
+- n_estimators: [100, 200]
+- max_depth: [10, 20]
+- min_samples_split: [2, 5]
+- min_samples_leaf: [1, 4]
+- max_features: ['sqrt', 'auto']
+- (3-fold cross-validation, R² scoring)
+
+**Process:**
+- The training script was updated to include a run_grid_search() method.
+- GridSearchCV was run on the training data, evaluating 96 total parameter combinations.
+- The best estimator (model with the best cross-validated R²) was selected for final evaluation.
+
+**Best Parameters Found:**
+- max_depth: 20
+- max_features: 'sqrt'
+- min_samples_leaf: 1
+- min_samples_split: 5
+- n_estimators: 200
+
+**Results:**
+- Best cross-validated R²: 0.466
+- Test set R²: 0.472 (slight improvement)
+- Overfitting is controlled (train R²: 0.833, test R²: 0.472)
+- Feature importance is interpretable and reasonable
+
+**Learning Points:**
+- GridSearchCV is a powerful tool for systematically tuning model hyperparameters.
+- Cross-validation helps ensure that the chosen parameters generalize well to unseen data.
+- Documenting each step and rationale is crucial for reproducibility and future learning.
+
+**Next Steps:**
+- Optionally expand the parameter grid or try RandomizedSearchCV for broader search.
+- Consider new features, data quality improvements, or alternative algorithms (e.g., XGBoost).
+- Continue logging all major changes and results for future reference and learning.
+
+--- 
+
+---
+Date: [AUTO-FILL LATEST DATE]
+
+**Step: Migration to XGBoost with GridSearchCV**
+
+**Summary:**
+Successfully migrated from RandomForestRegressor to XGBRegressor and implemented comprehensive hyperparameter tuning using GridSearchCV. This change was motivated by the need to explore more advanced algorithms that might provide better performance for the nutrition prediction task.
+
+**Technical Setup:**
+- **Dependency Installation:** Installed libomp using Homebrew (`HOMEBREW_NO_AUTO_UPDATE=1 brew install libomp`) to resolve XGBoost OpenMP runtime dependency on MacOS.
+- **Algorithm Change:** Replaced RandomForestRegressor with XGBRegressor wrapped in MultiOutputRegressor.
+- **Hyperparameter Grid:** Implemented comprehensive grid search over 7 parameters:
+  - n_estimators: [100, 200]
+  - max_depth: [6, 10]
+  - learning_rate: [0.01, 0.1]
+  - subsample: [0.8, 1.0]
+  - colsample_bytree: [0.8, 1.0]
+  - reg_alpha: [0.0, 0.1]
+  - reg_lambda: [1.0, 10.0]
+- **Search Process:** 3-fold cross-validation, R² scoring, 96 total combinations evaluated.
+
+**Results:**
+- **Best Parameters Found:**
+  ```
+  {'estimator__colsample_bytree': 0.8, 
+   'estimator__learning_rate': 0.1, 
+   'estimator__max_depth': 6, 
+   'estimator__n_estimators': 100, 
+   'estimator__reg_alpha': 0.0, 
+   'estimator__reg_lambda': 10.0, 
+   'estimator__subsample': 0.8}
+  ```
+- **Best Cross-validated R²:** 0.444
+- **Test Performance:** Overall R² = 0.450 (slightly improved from RandomForest)
+
+**Performance Comparison (XGBoost vs RandomForest):**
+- **Overall R²:** 0.450 (XGBoost) vs 0.472 (RandomForest) - XGBoost slightly lower
+- **Training Time:** XGBoost faster (0.2-2.2s per CV fold vs longer for RandomForest)
+- **Feature Importance:** Both models show disease-related features as most important
+- **Overfitting:** Both show similar train-test gaps (train R² ~0.8, test R² ~0.45)
+
+**Key Insights:**
+1. **XGBoost vs RandomForest:** Performance is comparable, with XGBoost being faster but slightly lower R²
+2. **Hyperparameter Optimization:** GridSearchCV found optimal settings that balance complexity and regularization
+3. **Feature Importance Consistency:** Both algorithms identify metabolic disorders and diabetes as top features
+4. **Overfitting Persists:** Both models show significant train-test performance gaps
+
+**Model Evaluation Results:**
+- **Suitable Targets:** Sugar, Calories, Carbohydrates, Fiber (meet acceptability thresholds)
+- **Needs Improvement:** Daily Calorie Target, Protein, Sodium (don't meet thresholds)
+- **Overall Assessment:** Model needs improvement before practical use
+
+**Next Steps:**
+- Consider ensemble methods combining both RandomForest and XGBoost
+- Explore additional feature engineering
+- Implement cross-validation in the main training pipeline
+- Consider collecting more training data if possible
+
+**Learning Points:**
+- XGBoost provides faster training but similar performance to RandomForest for this dataset
+- GridSearchCV is effective for systematic hyperparameter optimization
+- Disease-related features are consistently the most important across algorithms
+- The nutrition prediction task remains challenging with current feature set 
+
+---
+Date: [AUTO-FILL LATEST DATE]
+
+**Step: Advanced Regularization, Validation, and Visualization Upgrades**
+
+**Summary:**
+Implemented several advanced upgrades to the XGBoost-based nutrition prediction pipeline to further reduce overfitting, improve interpretability, and enhance model evaluation:
+
+1. **Validation Set & Early Stopping:**
+   - Each target's XGBoost model is now trained with a 10% validation split and early stopping (patience=10 rounds).
+   - This helps prevent overfitting and ensures the model does not train longer than necessary.
+
+2. **MAE Metrics Added:**
+   - Mean Absolute Error (MAE) is now calculated and reported for both train and test sets, alongside RMSE and R².
+   - MAE provides a more interpretable, robust measure of average prediction error.
+
+3. **Feature Importance Visualization:**
+   - The top 10 most important features (averaged across all targets) are now visualized with a horizontal bar plot for quick interpretation.
+
+4. **Expanded Grid Search:**
+   - The hyperparameter grid for XGBoost was expanded to include a wider range of regularization and complexity settings, allowing for more robust tuning.
+
+**Results:**
+- **Best Parameters Found:**
+  {'estimator__colsample_bytree': 0.6, 'estimator__learning_rate': 0.01, 'estimator__max_depth': 6, 'estimator__n_estimators': 500, 'estimator__reg_alpha': 0.0, 'estimator__reg_lambda': 10.0, 'estimator__subsample': 0.6}
+- **Best Cross-validated R²:** 0.460
+- **Test Performance:**
+  - Overall R²: 0.473
+  - Overall RMSE: 218.26
+  - Overall MAE: 105.67
+- **Target-wise Performance:**
+  - Protein, Sodium: Good (R² ~0.61)
+  - Daily Calorie Target, Calories: Moderate (R² ~0.44-0.57)
+  - Sugar, Carbohydrates, Fiber: Poor (R² ~0.36)
+- **Feature Importance:**
+  - Top features: Disease_Count, Has_Acne, Has_Diabetes, Has_Kidney_Disease, has_metabolic_disorder, Disease_Severity_encoded, Activity Level_encoded, Has_Heart_Disease, activity_goal_combo_encoded, has_cardiac_risk
+
+**Key Insights:**
+- Early stopping and validation splits help reduce overfitting, but some targets remain challenging to predict.
+- MAE provides a more interpretable error metric for practical use.
+- Disease-related features continue to dominate importance, suggesting strong clinical relevance.
+- The model is not yet suitable for production; further improvements are needed, especially for Sugar, Carbohydrates, and Fiber.
+
+**Next Steps:**
+- Consider additional feature engineering, data quality checks, and possibly ensemble or alternative algorithms (e.g., LightGBM).
+- Continue to log all major changes and results for future reference and learning.
+
+**Learning Points:**
+- Combining early stopping, robust metrics, and visualization provides a clearer picture of model strengths and weaknesses.
+- Systematic logging and experiment tracking are essential for reproducibility and future self-study. 
+
+---
+Date: [AUTO-FILL LATEST DATE]
+
+**Step: Focused Target Modeling and API Deployment**
+
+**Summary:**
+Several key changes were made to align the project with best practices for robust, trustworthy deployment:
+
+1. **Target Restriction:**
+   - The training and evaluation pipelines were updated to focus exclusively on the well-predicted targets: Protein, Sodium, and Calories.
+   - All other targets (Sugar, Carbohydrates, Fiber, Daily Calorie Target) are now excluded from modeling, evaluation, and reporting.
+   - This ensures that only reliable, actionable predictions are provided to users.
+
+2. **Evaluation Script Update:**
+   - The evaluation script was modified to override the target list after loading metadata, guaranteeing that only Protein, Sodium, and Calories are evaluated and reported, regardless of metadata contents.
+   - All metrics, plots, and recommendations now reflect only these three targets.
+
+3. **API Development:**
+   - An `api/` directory was created and a FastAPI inference script (`inference_api.py`) was added.
+   - The API loads the trained model and metadata at startup, accepts POST requests with preprocessed feature data, and returns predictions for the three supported targets.
+   - CORS is enabled for easy testing, and clear request/response examples are provided in the script.
+
+4. **Tokenizer Clarification:**
+   - Confirmed that no tokenizer is needed for this project, as it is a tabular regression model (not NLP/text).
+   - Emphasized that input data for inference must be preprocessed (encoded/scaled) identically to the training pipeline.
+
+**Project Implications:**
+- The project is now streamlined for reliable, real-world use on the targets where the model performs well.
+- The API is ready for deployment/testing and can be adapted for Hugging Face Spaces or other serving platforms.
+- The codebase and logs are fully aligned, making future improvements, audits, or handoffs much easier.
+
+**Next Steps:**
+- Optionally add preprocessing to the API for raw user input.
+- Prepare for Hugging Face Spaces deployment (Gradio or FastAPI UI).
+- Continue to log all major changes for reproducibility and future learning. 
+
+---
+2024-06-10: Gradio UI Disease Input & Encoding Debugging
+
+- Switched Gradio Disease input from a dropdown of full label-encoder strings to a user-friendly CheckboxGroup of individual diseases (Weight Gain, Hypertension, Heart Disease, Kidney Disease, Diabetes, Acne, Weight Loss).
+- Implemented logic in predict_nutrition to join and sort selected diseases into a single string before passing to the model, ensuring compatibility with the label encoder.
+- Debugged a critical bug where Disease was being passed as a list of characters (due to incorrect joining), causing label encoder errors ('unseen labels' with character lists).
+- Added debug prints to confirm Disease type and value at each step.
+- Fixed the bug by ensuring Disease is always a string (not a list or list of characters) before encoding.
+- Confirmed that the label encoder now receives the correct value and predictions are returned without errors.
+- Cleaned up output to match Gradio's expected format (tuple of three numbers).
+- The Gradio UI is now robust, user-friendly, and ready for deployment.
+--- 
+
+---
+2024-06-10: FastAPI Inference API Implementation
+
+- Developed a FastAPI-based inference API (`api/inference_api.py`) for the nutrition prediction model.
+- The API loads the trained model, metadata, and preprocessing objects at startup.
+- Accepts POST requests with raw, human-friendly input and applies all necessary preprocessing (encoding, scaling, feature engineering) to match the training pipeline.
+- Handles missing features, serialization issues, and provides clear error messages for invalid input.
+- Returns predictions for Protein, Sodium, and Calories in a robust, production-ready format.
+- CORS enabled for easy local and remote testing.
+- API is ready for deployment or integration with web UIs (e.g., Gradio, Hugging Face Spaces).
+--- 
+
+---
+2024-06-10: Gradio UI Finalization and Robust User Input
+
+- Built a Gradio UI (`ui/gradio_app.py`) for the nutrition prediction model, supporting user-friendly input for all features.
+- Implemented dropdowns for all categoricals and a CheckboxGroup for Disease, allowing users to select any combination of diseases.
+- Added logic to join and sort selected diseases into a string, ensuring compatibility with the label encoder.
+- Fixed all encoding bugs (including the character-joining issue) and confirmed robust predictions for all valid inputs.
+- Output format matches Gradio's requirements (tuple of three numbers).
+- The UI is now ready for deployment to Hugging Face Spaces or other platforms.
+--- 

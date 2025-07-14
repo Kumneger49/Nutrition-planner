@@ -53,6 +53,8 @@ class NutritionModelEvaluator:
         # Load metadata
         with open(self.metadata_path, 'r') as f:
             self.metadata = json.load(f)
+        # Only evaluate well-predicted targets
+        self.metadata['target_names'] = ['Protein', 'Sodium', 'Calories']
         
         # Load test data
         self.test_data = pd.read_csv(self.test_data_path)

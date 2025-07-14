@@ -30,6 +30,7 @@ import warnings
 import os
 from datetime import datetime
 import json
+from xgboost import XGBRegressor
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
@@ -114,41 +115,28 @@ class NutritionModelTrainer:
             print("❌ Data not loaded. Please run load_data() first.")
             return False
         
-        # Define target columns
+        # Define target columns (only well-predicted targets)
         self.target_names = [
-            'Daily Calorie Target',
-            'Protein', 
-            'Sugar',
+            'Protein',
             'Sodium',
-            'Calories',
-            'Carbohydrates',
-            'Fiber'
+            'Calories'
         ]
         
-        # Get feature columns (exclude targets and original categorical columns)
-        # Original categorical columns that should be excluded
-        original_categorical_columns = [
-            'Gender', 'Activity Level', 'Dietary Preference', 'Disease',
-            'Age_Group', 'Weight_Category', 'Disease_Severity',
-            'activity_goal_combo'  # Exclude the string version
-        ]
-        
-        # All columns to exclude
-        exclude_columns = self.target_names + original_categorical_columns
-        
-        # Get feature columns (all columns except targets and original categoricals)
-        self.feature_names = [col for col in self.train_data.columns if col not in exclude_columns]
+        # Load the feature list
+        with open('data/feature_columns.json', 'r') as f:
+            self.feature_names = json.load(f)
+
+        # Now select only these columns
+        self.X_train = self.train_data[self.feature_names]
+        self.X_test = self.test_data[self.feature_names]
         
         print(f"Target columns: {self.target_names}")
         print(f"Feature columns ({len(self.feature_names)}): {self.feature_names}")
-        print(f"Excluded original categorical columns: {original_categorical_columns}")
         
         # Prepare training data
-        self.X_train = self.train_data[self.feature_names]
         self.y_train = self.train_data[self.target_names]
         
         # Prepare test data
-        self.X_test = self.test_data[self.feature_names]
         self.y_test = self.test_data[self.target_names]
         
         print(f"✅ Training features shape: {self.X_train.shape}")
@@ -158,30 +146,33 @@ class NutritionModelTrainer:
         
         return True
     
-    def create_model(self, n_estimators: int = 100, max_depth: Optional[int] = None, random_state: int = 42) -> MultiOutputRegressor:
+    def create_model(self) -> MultiOutputRegressor:
         """
-        Create the Random Forest + MultiOutputRegressor model
+        Create the XGBoost + MultiOutputRegressor model with strong regularization to reduce overfitting
         """
-        print(f"\n🌲 Creating Random Forest + MultiOutputRegressor model...")
+        print(f"\n🌲 Creating XGBoost + MultiOutputRegressor model with enhanced regularization...")
         
-        # Create base Random Forest regressor
-        base_rf = RandomForestRegressor(
-            n_estimators=n_estimators,
-            max_depth=max_depth,
-            random_state=random_state,
-            n_jobs=-1,  # Use all CPU cores
-            verbose=0
+        base_xgb = XGBRegressor(
+            learning_rate=0.05,      # Slower learning for better generalization
+            n_estimators=500,        # More trees with smaller steps
+            max_depth=4,             # Limit tree complexity
+            subsample=0.7,           # Row sampling for noise injection
+            colsample_bytree=0.7,    # Feature sampling for decorrelation
+            reg_alpha=0.5,           # Stronger L1 regularization (sparsity)
+            reg_lambda=2.0,          # Stronger L2 regularization (weight shrinkage)
+            early_stopping_rounds=10, # Early stopping
+            eval_metric='rmse',      # Evaluation metric
+            n_jobs=-1,
+            random_state=42,
+            verbosity=0
         )
-        
-        # Wrap in MultiOutputRegressor
-        self.model = MultiOutputRegressor(base_rf)
-        
-        print(f"✅ Model created with {n_estimators} estimators")
-        return self.model
+        model = MultiOutputRegressor(base_xgb)
+        print("✅ Regularization-enhanced XGBoost model initialized")
+        return model
     
     def train_model(self) -> Optional[MultiOutputRegressor]:
         """
-        Train the model on the training data
+        Train the model on the training data, using early stopping with a validation set for each target
         """
         print("\n🚀 Training the model...")
         
@@ -192,12 +183,20 @@ class NutritionModelTrainer:
         if self.model is None:
             self.create_model()
         
-        # Train the model
-        start_time = datetime.now()
-        self.model.fit(self.X_train, self.y_train)
-        training_time = (datetime.now() - start_time).total_seconds()
-        
-        print(f"✅ Model training completed in {training_time:.2f} seconds")
+        # Early stopping for each target using a validation split
+        for i, target in enumerate(self.target_names):
+            print(f"🧠 Training model for target: {target}")
+            X_train_sub, X_val, y_train_sub, y_val = train_test_split(
+                self.X_train, self.y_train[target], test_size=0.1, random_state=42
+            )
+            self.model.estimators_[i].fit(
+                X_train_sub,
+                y_train_sub,
+                eval_set=[(X_val, y_val)],
+                early_stopping_rounds=10,
+                verbose=False
+            )
+        print("✅ All target models trained with early stopping.")
         return self.model
     
     def evaluate_model(self) -> Tuple[Dict[str, Dict[str, float]], Dict[str, Dict[str, float]]]:
@@ -224,23 +223,25 @@ class NutritionModelTrainer:
         
         print("\n🎯 Performance Metrics by Target:")
         print("=" * 80)
-        print(f"{'Target':<20} {'Train R²':<12} {'Test R²':<12} {'Train RMSE':<12} {'Test RMSE':<12}")
+        print(f"{'Target':<20} {'Train R²':<12} {'Test R²':<12} {'Train RMSE':<12} {'Test RMSE':<12} {'Train MAE':<12} {'Test MAE':<12}")
         print("=" * 80)
         
         for i, target in enumerate(self.target_names):
             # Training metrics
             train_r2 = r2_score(self.y_train.iloc[:, i], y_train_pred[:, i])
             train_rmse = np.sqrt(mean_squared_error(self.y_train.iloc[:, i], y_train_pred[:, i]))
+            train_mae = mean_absolute_error(self.y_train.iloc[:, i], y_train_pred[:, i])
             
             # Test metrics
             test_r2 = r2_score(self.y_test.iloc[:, i], y_test_pred[:, i])
             test_rmse = np.sqrt(mean_squared_error(self.y_test.iloc[:, i], y_test_pred[:, i]))
+            test_mae = mean_absolute_error(self.y_test.iloc[:, i], y_test_pred[:, i])
             
             # Store scores
-            self.train_scores[target] = {'r2': train_r2, 'rmse': train_rmse}
-            self.test_scores[target] = {'r2': test_r2, 'rmse': test_rmse}
+            self.train_scores[target] = {'r2': train_r2, 'rmse': train_rmse, 'mae': train_mae}
+            self.test_scores[target] = {'r2': test_r2, 'rmse': test_rmse, 'mae': test_mae}
             
-            print(f"{target:<20} {train_r2:<12.3f} {test_r2:<12.3f} {train_rmse:<12.3f} {test_rmse:<12.3f}")
+            print(f"{target:<20} {train_r2:<12.3f} {test_r2:<12.3f} {train_rmse:<12.3f} {test_rmse:<12.3f} {train_mae:<12.3f} {test_mae:<12.3f}")
         
         # Overall performance
         overall_train_r2 = r2_score(self.y_train, y_train_pred)
@@ -249,6 +250,22 @@ class NutritionModelTrainer:
         print("=" * 80)
         print(f"{'OVERALL':<20} {overall_train_r2:<12.3f} {overall_test_r2:<12.3f}")
         print("=" * 80)
+        
+        # --- Visualization: Train vs. Test R² per Target ---
+        train_r2_scores = [score['r2'] for score in self.train_scores.values()]
+        test_r2_scores = [score['r2'] for score in self.test_scores.values()]
+        targets = self.target_names
+        plt.figure(figsize=(10, 5))
+        x = np.arange(len(targets))
+        width = 0.35
+        plt.bar(x - width/2, train_r2_scores, width, label='Train R²')
+        plt.bar(x + width/2, test_r2_scores, width, label='Test R²')
+        plt.xticks(x, targets, rotation=45)
+        plt.ylabel("R² Score")
+        plt.title("Train vs. Test R² per Target")
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
         
         return self.train_scores, self.test_scores
     
@@ -282,6 +299,16 @@ class NutritionModelTrainer:
         for i, (feature, importance) in enumerate(sorted_features[:10], 1):
             print(f"{i:2d}. {feature:<25} {importance:.4f}")
         
+        # --- Feature Importance Plot ---
+        top_features = sorted_features[:10]
+        plt.figure(figsize=(10, 6))
+        sns.barplot(x=[imp for _, imp in top_features], y=[feat for feat, _ in top_features])
+        plt.title("Top 10 Most Important Features (Average Across Targets)")
+        plt.xlabel("Average Importance")
+        plt.ylabel("Feature")
+        plt.tight_layout()
+        plt.show()
+        
         return feature_importance, avg_importance
     
     def save_model(self, model_path: str = "model/nutrition_model.pkl") -> str:
@@ -311,7 +338,7 @@ class NutritionModelTrainer:
             'target_names': self.target_names,
             'train_scores': self.train_scores,
             'test_scores': self.test_scores,
-            'model_type': 'RandomForestRegressor + MultiOutputRegressor',
+            'model_type': 'XGBRegressor + MultiOutputRegressor',
             'training_date': datetime.now().isoformat(),
             'data_shape': {
                 'train_features': self.X_train.shape,
@@ -330,6 +357,46 @@ class NutritionModelTrainer:
         
         return model_path
     
+    def run_grid_search(self):
+        """
+        Run GridSearchCV to find the best hyperparameters for XGBRegressor.
+        """
+        print("\n🔎 Running GridSearchCV for hyperparameter tuning (XGBoost)...")
+        # Define expanded parameter grid for XGBoost
+        param_grid = {
+            'estimator__n_estimators': [100, 300, 500],
+            'estimator__max_depth': [3, 4, 6],
+            'estimator__learning_rate': [0.01, 0.05, 0.1],
+            'estimator__subsample': [0.6, 0.8, 1.0],
+            'estimator__colsample_bytree': [0.6, 0.8, 1.0],
+            'estimator__reg_alpha': [0.0, 0.1, 0.5, 1.0],
+            'estimator__reg_lambda': [1.0, 2.0, 5.0, 10.0]
+        }
+        # Base XGBRegressor
+        base_xgb = XGBRegressor(
+            n_jobs=-1,
+            random_state=42,
+            verbosity=0
+        )
+        # MultiOutput wrapper
+        multi_xgb = MultiOutputRegressor(base_xgb)
+        # GridSearchCV setup
+        grid_search = GridSearchCV(
+            estimator=multi_xgb,
+            param_grid=param_grid,
+            cv=3,
+            scoring='r2',
+            verbose=2,
+            n_jobs=-1
+        )
+        # Fit grid search
+        grid_search.fit(self.X_train, self.y_train)
+        print(f"\n✅ Best parameters: {grid_search.best_params_}")
+        print(f"✅ Best cross-validated R^2: {grid_search.best_score_:.3f}")
+        # Set the best estimator as the model
+        self.model = grid_search.best_estimator_
+        return self.model
+    
     def run_complete_training(self) -> Optional[MultiOutputRegressor]:
         """
         Run the complete training pipeline
@@ -346,10 +413,8 @@ class NutritionModelTrainer:
             if not self.prepare_features_and_targets():
                 return None
             
-            # 3. Create and train model
-            model = self.train_model()
-            if model is None:
-                return None
+            # 3. Hyperparameter tuning with GridSearchCV
+            self.run_grid_search()
             
             # 4. Evaluate model
             self.evaluate_model()

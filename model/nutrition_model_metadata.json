@@ -1,122 +1,84 @@
 {
   "feature_names": [
-    "Ages",
-    "Height",
-    "Weight",
+    "Ages_scaled",
+    "Height_scaled",
+    "Weight_scaled",
     "Gender_encoded",
     "Activity Level_encoded",
     "Dietary Preference_encoded",
     "Disease_encoded",
-    "Ages_scaled",
-    "Height_scaled",
-    "Weight_scaled",
     "BMI",
+    "Disease_Count",
     "Has_Weight_Gain",
     "Has_Hypertension",
     "Has_Heart_Disease",
     "Has_Kidney_Disease",
     "Has_Diabetes",
     "Has_Acne",
-    "Disease_Count",
-    "has_metabolic_disorder",
-    "has_cardiac_risk",
-    "protein_to_calories",
-    "carbs_to_calories",
-    "sugar_to_fiber",
-    "protein_per_kg",
-    "calories_per_kg",
     "Age_Group_encoded",
     "Weight_Category_encoded",
     "Disease_Severity_encoded",
-    "activity_goal_combo_encoded"
+    "activity_goal_combo_encoded",
+    "has_metabolic_disorder",
+    "has_cardiac_risk"
   ],
   "target_names": [
-    "Daily Calorie Target",
     "Protein",
-    "Sugar",
     "Sodium",
-    "Calories",
-    "Carbohydrates",
-    "Fiber"
+    "Calories"
   ],
   "train_scores": {
-    "Daily Calorie Target": {
-      "r2": 0.9984466621702264,
-      "rmse": 21.87051259758893
-    },
     "Protein": {
-      "r2": 0.9991886599978582,
-      "rmse": 1.523358456419635
-    },
-    "Sugar": {
-      "r2": 0.9857683001216011,
-      "rmse": 4.130387426689028
+      "r2": 0.805985689163208,
+      "rmse": 23.556866607328505,
+      "mae": 18.249834060668945
     },
     "Sodium": {
-      "r2": 0.9991800242588026,
-      "rmse": 0.3062888315076684
+      "r2": 0.8059856858698194,
+      "rmse": 4.711373614417376,
+      "mae": 3.6499673632704637
     },
     "Calories": {
-      "r2": 0.9909855860060283,
-      "rmse": 53.97138895674699
-    },
-    "Carbohydrates": {
-      "r2": 0.9857683001216011,
-      "rmse": 8.260774853378056
-    },
-    "Fiber": {
-      "r2": 0.9858358435348804,
-      "rmse": 0.9889378546468222
+      "r2": 0.7933652400970459,
+      "rmse": 258.40237820596775,
+      "mae": 204.40081787109375
     }
   },
   "test_scores": {
-    "Daily Calorie Target": {
-      "r2": 0.9923457188264233,
-      "rmse": 50.098650469084795
-    },
     "Protein": {
-      "r2": 0.9941216516844517,
-      "rmse": 4.0265144027178295
-    },
-    "Sugar": {
-      "r2": 0.8955434682975805,
-      "rmse": 11.669381227609891
+      "r2": 0.6094275712966919,
+      "rmse": 32.821042414818464,
+      "mae": 25.929061889648438
     },
     "Sodium": {
-      "r2": 0.9941133052281933,
-      "rmse": 0.8058743881100614
+      "r2": 0.6094272188438398,
+      "rmse": 6.564211740705576,
+      "mae": 5.18581410071429
     },
     "Calories": {
-      "r2": 0.9260476691086614,
-      "rmse": 157.61424207445813
-    },
-    "Carbohydrates": {
-      "r2": 0.8955434682975805,
-      "rmse": 23.338762455219783
-    },
-    "Fiber": {
-      "r2": 0.8954934783965934,
-      "rmse": 2.801321570217298
+      "r2": 0.5703784227371216,
+      "rmse": 379.8941464408211,
+      "mae": 294.75335693359375
     }
   },
-  "model_type": "RandomForestRegressor + MultiOutputRegressor",
-  "training_date": "2025-07-13T17:06:04.281715",
+  "model_type": "XGBRegressor + MultiOutputRegressor",
+  "training_date": "2025-07-14T12:14:54.830889",
   "data_shape": {
     "train_features": [
       1358,
-      29
+      21
     ],
     "train_targets": [
       1358,
-      7
+      3
     ],
     "test_features": [
       340,
-      29
+      21
     ],
     "test_targets": [
       340,
-      7
+      3
     ]
   }
 }

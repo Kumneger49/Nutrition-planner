@@ -409,33 +409,28 @@ class NutritionDataPreprocessor:
                 final_features.append(col)
         
         # Add encoded derived categorical features
-        derived_categoricals = ['Age_Group_encoded', 'Weight_Category_encoded', 'Disease_Severity_encoded']
+        derived_categoricals = ['Age_Group_encoded', 'Weight_Category_encoded', 'Disease_Severity_encoded', 'activity_goal_combo_encoded']
         for col in derived_categoricals:
             if col in data.columns:
                 final_features.append(col)
         
-        # --- NEW ENGINEERED FEATURES ---
-        engineered_features = [
-            'protein_to_calories',
-            'carbs_to_calories',
-            'fat_to_calories',
-            'sugar_to_fiber',
-            'protein_per_kg',
-            'calories_per_kg',
+        # --- REMOVE LEAKY ENGINEERED FEATURES ---
+        # Do NOT add: protein_to_calories, carbs_to_calories, fat_to_calories, sugar_to_fiber, protein_per_kg, calories_per_kg
+        # Only keep safe engineered features (has_metabolic_disorder, has_cardiac_risk, activity_goal_combo_encoded)
+        safe_engineered_features = [
             'has_metabolic_disorder',
             'has_cardiac_risk',
-            'activity_goal_combo',
         ]
-        for col in engineered_features:
+        for col in safe_engineered_features:
             if col in data.columns:
                 final_features.append(col)
-                print(f"✅ Using engineered feature: {col}")
+                print(f"✅ Using safe engineered feature: {col}")
         
         print(f"\n🎯 Final feature set created with {len(final_features)} features:")
         print(f"   - Numerical features: {len([f for f in final_features if '_scaled' in f or f in ['Ages', 'Height', 'Weight', 'BMI', 'Disease_Count']])}")
         print(f"   - Categorical features: {len([f for f in final_features if '_encoded' in f])}")
         print(f"   - Binary features: {len([f for f in final_features if f.startswith('Has_') or f.startswith('has_')])}")
-        print(f"   - Engineered features: {len([f for f in final_features if f in engineered_features])}")
+        print(f"   - Safe engineered features: {len([f for f in final_features if f in safe_engineered_features or f == 'activity_goal_combo_encoded'])}")
         
         return final_features
     
@@ -548,6 +543,13 @@ class NutritionDataPreprocessor:
             
             # 12. Get summary
             summary = self.get_data_summary()
+
+            # --- SAVE FINAL FEATURE LIST FOR TRAINING SCRIPT ---
+            final_features = self.get_final_feature_set('train')
+            import json
+            with open('data/feature_columns.json', 'w') as f:
+                json.dump(final_features, f)
+            print("✅ Feature columns saved to data/feature_columns.json")
             
             print("\n✅ Data preprocessing completed!")
             print(f"Processed data shape: {self.df_processed.shape}")
@@ -695,7 +697,7 @@ def main():
     print("=" * 50)
     
     # Initialize preprocessor
-    preprocessor = NutritionDataPreprocessor("./detailed_meals_macros_CLEANED.csv")
+    preprocessor = NutritionDataPreprocessor("data/detailed_meals_macros_CLEANED.csv")
     
     # Run complete preprocessing with data saving enabled
     result = preprocessor.run_complete_preprocessing(
