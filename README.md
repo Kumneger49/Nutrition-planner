@@ -1,151 +1,114 @@
-# 🍎 Nutrition Prediction Model
+# 🍎 Nutrition Planner: Robust Nutrition Prediction
 
-A machine learning project that predicts personalized nutritional needs for individuals based on their profile using multi-output regression.
+A machine learning project for predicting personalized nutritional needs (Protein, Sodium, Calories) using a robust, leakage-free pipeline and modern deployment tools.
 
-## 🎯 Project Goal
+---
 
-Train a multi-output regression model that predicts the following nutrition targets:
-- Daily Calorie Target
-- Protein
-- Sugar
-- Sodium
-- Calories
-- Carbohydrates
-- Fiber
+## 🎯 Project Overview
 
-## 🏗️ Model Architecture
+- **Goal:** Predict individual daily needs for Protein, Sodium, and Calories based on demographic and health profile.
+- **Model:** MultiOutputRegressor with XGBoost (leakage-free, robust features only)
+- **Deployment:** FastAPI inference API and user-friendly Gradio UI
+- **Status:** Ready for local and cloud deployment (e.g., Hugging Face Spaces)
 
-- **Base Model**: `RandomForestRegressor`
-- **Wrapper**: `MultiOutputRegressor` from scikit-learn
-- **Features**: Age, Gender, Height, Weight, Activity Level, Dietary Preference
-- **Targets**: 7 nutritional metrics
+---
 
-## 📋 Requirements
+## 🏗️ Pipeline Highlights
 
-- Python 3.7+
-- pandas
-- numpy
-- scikit-learn
+- **Data Leakage Prevention:** All features derived from targets have been removed. Only safe, non-leaky features (demographics, disease flags, encoded categoricals) are used.
+- **Feature Engineering:** Includes BMI, disease flags, and robust categorical encoding.
+- **Targets:** Only well-predicted targets are modeled and served: **Protein, Sodium, Calories**.
+- **Model:**
+  - XGBoost (via MultiOutputRegressor)
+  - Hyperparameter tuning with GridSearchCV
+  - Realistic, trustworthy performance (test R² ≈ 0.44–0.47)
+- **Preprocessing:** All encoders and scalers are saved and reused for inference.
 
-## 🚀 Setup & Installation
+---
 
-1. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+## 🚀 Usage
 
-2. **Ensure your dataset is in the correct location**:
-   ```
-   data/detailed_meals_macros_CLEANED.csv
-   ```
+### 1. **FastAPI Inference API**
 
-## 🎮 Usage
+- **Location:** `api/inference_api.py`
+- **How to run:**
+  ```bash
+  uvicorn api.inference_api:app --reload --port 8001
+  ```
+- **Endpoints:**
+  - `POST /predict` — Accepts raw, human-friendly input (JSON) and returns predictions for Protein, Sodium, and Calories.
+- **Preprocessing:** The API automatically encodes, scales, and engineers features to match the training pipeline.
+- **Swagger UI:** Visit `http://127.0.0.1:8001/docs` for interactive API docs.
 
-### Run the complete pipeline:
-```bash
-python nutrition_prediction_model.py
-```
+### 2. **Gradio User Interface**
 
-### Expected Output:
-```
-🍎 Nutrition Prediction Model
-==================================================
-📊 Loading dataset...
-Dataset shape: (1700, 35)
-Columns: ['Ages', 'Gender', 'Height', 'Weight', ...]
+- **Location:** `ui/gradio_app.py`
+- **How to run:**
+  ```bash
+  python ui/gradio_app.py
+  ```
+- **Features:**
+  - User-friendly form for all inputs (dropdowns, number fields, multi-select for diseases)
+  - Robust handling of all preprocessing and encoding
+  - Returns predictions for Protein, Sodium, and Calories
+  - Ready for deployment to Hugging Face Spaces
 
-🔧 Preprocessing data...
-Dropping rows with missing target values...
-Dropped 0 rows with missing target values
-Handling missing values in feature columns...
-Encoding categorical features...
-Encoded Gender: {'Female': 0, 'Male': 1}
-Encoded Activity Level: {'Lightly Active': 0, 'Moderately Active': 1, 'Sedentary': 2, 'Very Active': 3}
-Encoded Dietary Preference: {'Omnivore': 0, 'Vegan': 1, 'Vegetarian': 2}
+---
 
-📋 Preparing train/test split...
-Feature matrix shape: (1700, 6)
-Target matrix shape: (1700, 7)
-Training set: 1360 samples
-Test set: 340 samples
+## 🧑‍💻 Development & Data Pipeline
 
-🤖 Training MultiOutputRegressor with RandomForestRegressor...
-✅ Model training completed!
+- **Data Preprocessing:**
+  - All leaky features removed
+  - Feature list saved to `data/feature_columns.json`
+  - Preprocessing objects (encoders, scaler) saved to `data/preprocessing_objects.pkl`
+- **Model Training:**
+  - XGBoost with hyperparameter tuning
+  - Only safe features and well-predicted targets
+  - Model and metadata saved to `model/`
+- **Evaluation:**
+  - Only Protein, Sodium, and Calories are evaluated and reported
+  - All scripts and logs updated for reproducibility
 
-📈 Evaluating model performance...
-Daily Calorie Target: R² = 0.XXXX
-Protein: R² = 0.XXXX
-Sugar: R² = 0.XXXX
-Sodium: R² = 0.XXXX
-Calories: R² = 0.XXXX
-Carbohydrates: R² = 0.XXXX
-Fiber: R² = 0.XXXX
+---
 
-Overall R² Score: 0.XXXX
+## 🏁 Deployment
 
-💾 Saving processed data to processed_nutrition_data.csv...
-✅ Processed data saved successfully!
+- **Local:** Run FastAPI or Gradio as above
+- **Cloud:**
+  - Push to Hugging Face Spaces for public demo (Gradio recommended)
+  - All dependencies listed in `requirements.txt`
+- **Artifacts:**
+  - Model: `model/nutrition_model.pkl`
+  - Metadata: `model/nutrition_model_metadata.json`
+  - Preprocessing: `data/preprocessing_objects.pkl`
 
-🎉 Pipeline completed successfully!
-Model trained on 1360 samples
-Model tested on 340 samples
-Overall model performance: R² = 0.XXXX
+---
 
-✅ Model ready for use!
-```
+## 🛠️ Troubleshooting
 
-## 📊 Data Processing Pipeline
+- **Unseen label errors:** Only use allowed values for categorical fields (see UI dropdowns)
+- **File not found:** Ensure all model and preprocessing files are in place
+- **API/UI errors:** Check logs and ensure dependencies are installed
 
-The script performs the following steps:
-
-1. **Data Loading**: Loads the CSV dataset
-2. **Data Exploration**: Shows dataset shape, columns, data types, and missing values
-3. **Data Cleaning**: 
-   - Drops rows with missing target values
-   - Handles missing values in features (median for numerical, mode for categorical)
-4. **Feature Engineering**:
-   - Encodes categorical variables using LabelEncoder
-   - Creates final feature set
-5. **Train/Test Split**: 80% training, 20% testing
-6. **Model Training**: MultiOutputRegressor with RandomForestRegressor
-7. **Model Evaluation**: R² scores for each target variable
-8. **Data Export**: Saves processed dataset
-
-## 🔧 Model Configuration
-
-The RandomForestRegressor is configured with:
-- `n_estimators=100`: Number of trees
-- `max_depth=10`: Maximum tree depth
-- `min_samples_split=5`: Minimum samples to split
-- `min_samples_leaf=2`: Minimum samples per leaf
-- `random_state=42`: For reproducibility
-- `n_jobs=-1`: Use all CPU cores
-
-## 📁 Output Files
-
-- `processed_nutrition_data.csv`: Cleaned and preprocessed dataset
-- Console output with detailed performance metrics
-
-## 🎯 Model Performance
-
-The model provides:
-- Individual R² scores for each nutritional target
-- Overall R² score for the complete model
-- Detailed training and testing statistics
-
-## 🔍 Troubleshooting
-
-**Common Issues:**
-1. **File not found**: Ensure `detailed_meals_macros_CLEANED.csv` is in the `data/` folder
-2. **Missing dependencies**: Run `pip install -r requirements.txt`
-3. **Memory issues**: Reduce `n_estimators` in the RandomForestRegressor
+---
 
 ## 📈 Next Steps
 
-Potential improvements:
-- Feature scaling/normalization
-- Hyperparameter tuning with GridSearchCV
-- Cross-validation
-- Model persistence (save/load trained model)
-- Real-time prediction API
-- Feature importance analysis 
+- Further feature engineering and data quality improvements
+- Explore ensemble or alternative algorithms (e.g., LightGBM)
+- Add more user guidance and documentation
+- Continue logging all major changes for reproducibility
+
+---
+
+## 🕰️ Legacy Note
+
+This project previously used a RandomForest-based pipeline and predicted 7 targets. The current version is focused, robust, and production-ready. See `project.log` for a full history of changes and lessons learned.
+
+--- 
+
+## 🖼️ Gradio UI Example
+
+Below is a screenshot of the user-friendly Gradio interface for personalized nutrition prediction:
+
+![Gradio UI Screenshot](Screenshot%202025-07-14%20at%202.49.18%E2%80%AFPM.png) 
